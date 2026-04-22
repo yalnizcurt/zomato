@@ -23,6 +23,7 @@ rich>=13.7.0,<14.0.0             # Beautiful terminal output (tables, cards)
 # --- Web UI ---
 flask>=3.0.0,<4.0.0              # Lightweight web server
 flask-cors>=4.0.0,<5.0.0         # CORS support for API calls
+gunicorn>=22.0.0,<23.0.0         # Production WSGI server
 
 # --- Configuration ---
 python-dotenv>=1.0.0,<2.0.0     # Load .env files for API keys

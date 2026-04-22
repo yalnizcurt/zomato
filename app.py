@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import json
 import time
@@ -245,13 +246,14 @@ def recommend():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5001))
     print("\n🍽️  Restaurant Recommender — Web UI")
     print(f"   Environment: {settings.env.value}")
     print(f"   LLM Provider: {settings.llm_provider.value}")
-    print(f"   Open http://localhost:5001 in your browser\n")
+    print(f"   Open http://localhost:{port} in your browser\n")
 
     app.run(
         host="0.0.0.0",
-        port=5001,
+        port=port,
         debug=(settings.env.value == "development"),
     )
