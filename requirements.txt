@@ -5,6 +5,7 @@
 # --- Phase 1: Data Ingestion ---
 datasets>=2.19.0,<3.0.0          # Hugging Face dataset loading & caching
 pandas>=2.2.0,<3.0.0             # DataFrame operations & filtering
+pyarrow>=15.0.0                  # Parquet file support (fast dataset loading)
 
 # --- Phase 2: User Input ---
 pydantic>=2.7.0,<3.0.0           # Schema validation for user input
