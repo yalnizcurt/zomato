@@ -113,6 +113,12 @@ def index():
     return send_from_directory("static", "index.html")
 
 
+@app.route("/healthz")
+def healthz():
+    """Health check endpoint for Render / load balancers."""
+    return jsonify({"status": "ok"}), 200
+
+
 @app.route("/api/metadata", methods=["GET"])
 def get_metadata():
     """Return available cities and cuisines for the UI dropdowns."""
