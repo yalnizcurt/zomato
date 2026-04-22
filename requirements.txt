@@ -1,0 +1,32 @@
+# ============================================================
+# Restaurant Recommender — Pinned Dependencies
+# ============================================================
+
+# --- Phase 1: Data Ingestion ---
+datasets>=2.19.0,<3.0.0          # Hugging Face dataset loading & caching
+pandas>=2.2.0,<3.0.0             # DataFrame operations & filtering
+
+# --- Phase 2: User Input ---
+pydantic>=2.7.0,<3.0.0           # Schema validation for user input
+
+# --- Phase 3: Integration Layer ---
+thefuzz[speedup]>=0.22.0,<1.0.0  # Fuzzy string matching (location/cuisine)
+tiktoken>=0.7.0,<1.0.0           # Token counting for prompt budget
+
+# --- Phase 4: LLM Engine ---
+openai>=1.30.0,<2.0.0            # OpenAI API client
+google-genai>=1.0.0                # Google Gemini API client (new SDK)
+
+# --- Phase 5: Output Display ---
+rich>=13.7.0,<14.0.0             # Beautiful terminal output (tables, cards)
+
+# --- Web UI ---
+flask>=3.0.0,<4.0.0              # Lightweight web server
+flask-cors>=4.0.0,<5.0.0         # CORS support for API calls
+
+# --- Configuration ---
+python-dotenv>=1.0.0,<2.0.0     # Load .env files for API keys
+
+# --- Testing ---
+pytest>=8.2.0,<9.0.0            # Test runner
+pytest-cov>=5.0.0,<6.0.0        # Coverage reporting

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI-powered restaurant recommendations inspired by Zomato. Find your perfect dining spot with personalized, explainable suggestions.">
+    <title>🍽️ Restaurant Recommender — AI Powered</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+    <!-- Animated background blobs -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="header-content">
+            <div class="logo">
+                <span class="logo-icon">🍽️</span>
+                <span class="logo-text">FoodFinder<span class="logo-ai">AI</span></span>
+            </div>
+            <p class="tagline">Discover your perfect restaurant with AI-powered recommendations</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+
+        <!-- Preference Form -->
+        <section class="form-section" id="form-section">
+            <div class="form-card glass">
+                <h1 class="form-title">What are you craving?</h1>
+                <p class="form-subtitle">Tell us your preferences and our AI will find the best restaurants for you.</p>
+
+                <form id="preference-form" autocomplete="off">
+
+                    <!-- Location -->
+                    <div class="form-group" id="group-location">
+                        <label for="location">
+                            <span class="label-icon">📍</span> City
+                        </label>
+                        <div class="select-wrapper">
+                            <select id="location" name="location" required>
+                                <option value="" disabled selected>Loading cities...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Budget -->
+                    <div class="form-group" id="group-budget">
+                        <label>
+                            <span class="label-icon">💰</span> Budget
+                        </label>
+                        <div class="budget-pills">
+                            <input type="radio" name="budget" id="budget-low" value="low">
+                            <label for="budget-low" class="pill">
+                                <span class="pill-label">Low</span>
+                                <span class="pill-detail">Under ₹500</span>
+                            </label>
+
+                            <input type="radio" name="budget" id="budget-medium" value="medium" checked>
+                            <label for="budget-medium" class="pill">
+                                <span class="pill-label">Medium</span>
+                                <span class="pill-detail">₹500 – ₹1,500</span>
+                            </label>
+
+                            <input type="radio" name="budget" id="budget-high" value="high">
+                            <label for="budget-high" class="pill">
+                                <span class="pill-label">High</span>
+                                <span class="pill-detail">Above ₹1,500</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Cuisines -->
+                    <div class="form-group" id="group-cuisines">
+                        <label for="cuisines-input">
+                            <span class="label-icon">🍕</span> Cuisines
+                        </label>
+                        <div class="cuisine-input-area">
+                            <div class="selected-cuisines" id="selected-cuisines"></div>
+                            <input
+                                type="text"
+                                id="cuisines-input"
+                                placeholder="Type to search cuisines..."
+                                autocomplete="off"
+                            >
+                            <div class="cuisine-dropdown" id="cuisine-dropdown"></div>
+                        </div>
+                    </div>
+
+                    <!-- Rating -->
+                    <div class="form-group" id="group-rating">
+                        <label for="min-rating">
+                            <span class="label-icon">⭐</span> Minimum Rating
+                        </label>
+                        <div class="rating-slider-container">
+                            <input
+                                type="range"
+                                id="min-rating"
+                                name="min_rating"
+                                min="0" max="5" step="0.5"
+                                value="3.0"
+                            >
+                            <div class="rating-display">
+                                <span id="rating-value" class="rating-number">3.0</span>
+                                <span class="rating-max">/ 5.0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Preferences -->
+                    <div class="form-group" id="group-additional">
+                        <label for="additional">
+                            <span class="label-icon">💬</span> Additional Preferences
+                            <span class="label-optional">(optional)</span>
+                        </label>
+                        <textarea
+                            id="additional"
+                            name="additional_preferences"
+                            placeholder="e.g., family-friendly, rooftop seating, live music, quick service..."
+                            rows="2"
+                            maxlength="500"
+                        ></textarea>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" class="submit-btn" id="submit-btn">
+                        <span class="btn-text">Find Restaurants</span>
+                        <span class="btn-icon">✨</span>
+                        <div class="btn-loader" id="btn-loader"></div>
+                    </button>
+
+                </form>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section hidden" id="results-section">
+            <div class="results-header">
+                <h2 class="results-title" id="results-title">Your Recommendations</h2>
+                <p class="results-subtitle" id="results-subtitle"></p>
+                <button class="back-btn" id="back-btn">
+                    ← Search Again
+                </button>
+            </div>
+            <div class="results-grid" id="results-grid">
+                <!-- Cards injected by JS -->
+            </div>
+        </section>
+
+        <!-- Error Message -->
+        <div class="error-toast hidden" id="error-toast">
+            <span class="error-icon">⚠️</span>
+            <span class="error-message" id="error-message"></span>
+            <button class="error-close" id="error-close">×</button>
+        </div>
+
+    </main>
+
+    <footer class="footer">
+        <p>Powered by AI · Built with ❤️ · Data from Zomato via Hugging Face</p>
+    </footer>
+
+    <script src="/app.js"></script>
+</body>
+</html>
