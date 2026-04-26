@@ -62,9 +62,11 @@ def validate(
     return prefs
 
 
-def _validate_location(location: str, available_cities: list[str]) -> str:
+def _validate_location(location, available_cities: list[str]) -> str:
     """Validate and fuzzy-match the location."""
-    location = location.strip().lower()
+    if location is None:
+        location = ""
+    location = str(location).strip().lower()
 
     if not location:
         raise InputValidationError(
@@ -94,8 +96,9 @@ def _validate_location(location: str, available_cities: list[str]) -> str:
     )
 
 
-def _validate_budget(budget: str) -> BudgetLevel:
+def _validate_budget(budget) -> BudgetLevel:
     """Validate budget input against allowed enum values."""
+    budget = "" if budget is None else str(budget)
     budget = budget.strip().lower()
     try:
         return BudgetLevel(budget)
@@ -107,8 +110,15 @@ def _validate_budget(budget: str) -> BudgetLevel:
         )
 
 
-def _validate_cuisines(cuisines: list[str], available_cuisines: list[str]) -> list[str]:
+def _validate_cuisines(cuisines, available_cuisines: list[str]) -> list[str]:
     """Validate and fuzzy-match cuisines against available options."""
+    if cuisines is None:
+        cuisines = []
+    elif isinstance(cuisines, str):
+        cuisines = [c.strip() for c in cuisines.split(",") if c.strip()]
+    elif not isinstance(cuisines, list):
+        cuisines = [str(cuisines)]
+
     if not cuisines:
         # Default: no cuisine filter (accept all)
         return []
