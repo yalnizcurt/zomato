@@ -15,8 +15,7 @@ thefuzz[speedup]>=0.22.0,<1.0.0  # Fuzzy string matching (location/cuisine)
 tiktoken>=0.7.0,<1.0.0           # Token counting for prompt budget
 
 # --- Phase 4: LLM Engine ---
-openai>=1.30.0,<2.0.0            # OpenAI API client
-google-genai>=1.0.0                # Google Gemini API client (new SDK)
+openai>=1.30.0,<2.0.0            # OpenAI-compatible client (used for Groq API)
 
 # --- Phase 5: Output Display ---
 rich>=13.7.0,<14.0.0             # Beautiful terminal output (tables, cards)

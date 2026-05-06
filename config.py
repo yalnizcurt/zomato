@@ -40,33 +40,22 @@ class Environment(Enum):
 
 class LLMProvider(Enum):
     """Supported LLM providers."""
-    OPENAI = "openai"
-    GEMINI = "gemini"
+    GROQ = "groq"
 
 
 # ---------------------------------------------------------------------------
 # LLM-specific configuration
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
-class OpenAIConfig:
-    """OpenAI provider settings."""
+class GroqConfig:
+    """Groq provider settings (OpenAI-compatible API)."""
     api_key: str
-    model: str = "gpt-4o-mini"
-    temperature: float = 0.3
-    max_tokens: int = 1024
-    timeout_seconds: int = 15
-    max_retries: int = 2
-
-
-@dataclass(frozen=True)
-class GeminiConfig:
-    """Google Gemini provider settings."""
-    api_key: str
-    model: str = "gemini-flash-latest"
+    model: str = "llama-3.3-70b-versatile"
     temperature: float = 0.3
     max_tokens: int = 2048
     timeout_seconds: int = 30
     max_retries: int = 2
+    base_url: str = "https://api.groq.com/openai/v1"
 
 
 # ---------------------------------------------------------------------------
@@ -130,7 +119,7 @@ class Settings:
 
     # --- LLM Provider ---
     llm_provider: LLMProvider = field(default_factory=lambda: LLMProvider(
-        os.getenv("LLM_PROVIDER", "gemini").lower()
+        os.getenv("LLM_PROVIDER", "groq").lower()
     ))
 
     # --- Recommendation defaults ---
@@ -149,8 +138,7 @@ class Settings:
     city_aliases: dict[str, str] = field(default_factory=lambda: CITY_ALIASES.copy())
 
     # --- Derived LLM configs (populated in __post_init__) ---
-    openai_config: Optional[OpenAIConfig] = field(default=None, init=False)
-    gemini_config: Optional[GeminiConfig] = field(default=None, init=False)
+    groq_config: Optional[GroqConfig] = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         """Build provider-specific configs from environment variables."""
@@ -168,24 +156,12 @@ class Settings:
         default_timeout = 30 if is_prod else 30
         default_retries = 3 if is_prod else 2
 
-        # OpenAI config
-        openai_key = os.getenv("OPENAI_API_KEY", "")
-        if openai_key and openai_key != "sk-your-openai-key-here":
-            self.openai_config = OpenAIConfig(
-                api_key=openai_key,
-                model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-                temperature=default_temp,
-                max_tokens=default_tokens,
-                timeout_seconds=default_timeout,
-                max_retries=default_retries,
-            )
-
-        # Gemini config
-        gemini_key = os.getenv("GEMINI_API_KEY", "")
-        if gemini_key and gemini_key != "your-gemini-key-here":
-            self.gemini_config = GeminiConfig(
-                api_key=gemini_key,
-                model=os.getenv("GEMINI_MODEL", "gemini-flash-latest"),
+        # Groq config
+        groq_key = os.getenv("GROQ_API_KEY", "")
+        if groq_key and groq_key != "your-groq-api-key-here":
+            self.groq_config = GroqConfig(
+                api_key=groq_key,
+                model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
                 temperature=default_temp,
                 max_tokens=default_tokens,
                 timeout_seconds=default_timeout,
@@ -193,22 +169,14 @@ class Settings:
             )
 
     @property
-    def active_llm_config(self) -> OpenAIConfig | GeminiConfig:
+    def active_llm_config(self) -> GroqConfig:
         """Return the config for the currently selected LLM provider."""
-        if self.llm_provider == LLMProvider.OPENAI:
-            if self.openai_config is None:
-                raise ValueError(
-                    "LLM_PROVIDER is 'openai' but OPENAI_API_KEY is not set. "
-                    "Check your .env file."
-                )
-            return self.openai_config
-        else:
-            if self.gemini_config is None:
-                raise ValueError(
-                    "LLM_PROVIDER is 'gemini' but GEMINI_API_KEY is not set. "
-                    "Check your .env file."
-                )
-            return self.gemini_config
+        if self.groq_config is None:
+            raise ValueError(
+                "LLM_PROVIDER is 'groq' but GROQ_API_KEY is not set. "
+                "Check your .env file."
+            )
+        return self.groq_config
 
     @property
     def project_root(self) -> Path:

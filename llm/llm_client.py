@@ -6,6 +6,8 @@ Abstract LLM provider with:
   - Token-bucket rate limiter (proactively prevents 429s)
   - Exponential backoff with jitter for transient errors
   - Fast-fail to heuristic fallback after consecutive rate-limit hits
+
+Uses Groq API (OpenAI-compatible) with llama-3.3-70b-versatile.
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ import random
 import threading
 import time
 
-from config import settings, LLMProvider, OpenAIConfig, GeminiConfig
+from config import settings, LLMProvider, GroqConfig
 from models import LLMError
 
 logger = logging.getLogger(__name__)
@@ -29,11 +31,11 @@ class _RateLimiter:
     """
     Simple token-bucket rate limiter.
 
-    Gemini free tier allows ~15 RPM (requests per minute).
-    We default to 10 RPM to stay safely under the limit.
+    Groq free tier allows ~30 RPM (requests per minute).
+    We default to 25 RPM to stay safely under the limit.
     """
 
-    def __init__(self, max_requests: int = 10, window_seconds: float = 60.0):
+    def __init__(self, max_requests: int = 25, window_seconds: float = 60.0):
         self._max = max_requests
         self._window = window_seconds
         self._timestamps: list[float] = []
@@ -78,40 +80,30 @@ class _RateLimiter:
             return self._consecutive_429s >= 2
 
 
-# Global rate limiters — one per provider
-_gemini_limiter = _RateLimiter(max_requests=10, window_seconds=60.0)
-_openai_limiter = _RateLimiter(max_requests=50, window_seconds=60.0)
+# Global rate limiter for Groq
+_groq_limiter = _RateLimiter(max_requests=25, window_seconds=60.0)
 
 
 # ===================================================================
 # Singleton clients
 # ===================================================================
 
-_gemini_client = None
-_openai_client = None
+_groq_client = None
 _client_lock = threading.Lock()
 
 
-def _get_gemini_client(config: GeminiConfig):
-    """Return a singleton Gemini client instance."""
-    global _gemini_client
+def _get_groq_client(config: GroqConfig):
+    """Return a singleton Groq client instance (OpenAI-compatible)."""
+    global _groq_client
     with _client_lock:
-        if _gemini_client is None:
-            from google import genai
-            _gemini_client = genai.Client(api_key=config.api_key)
-            logger.info("Gemini client initialised (singleton).")
-        return _gemini_client
-
-
-def _get_openai_client(config: OpenAIConfig):
-    """Return a singleton OpenAI client instance."""
-    global _openai_client
-    with _client_lock:
-        if _openai_client is None:
+        if _groq_client is None:
             import openai
-            _openai_client = openai.OpenAI(api_key=config.api_key)
-            logger.info("OpenAI client initialised (singleton).")
-        return _openai_client
+            _groq_client = openai.OpenAI(
+                api_key=config.api_key,
+                base_url=config.base_url,
+            )
+            logger.info("Groq client initialised (singleton, OpenAI-compatible).")
+        return _groq_client
 
 
 # ===================================================================
@@ -121,11 +113,7 @@ def _get_openai_client(config: OpenAIConfig):
 def call_llm(prompt: str) -> str:
     """Send prompt to configured LLM, return raw response text."""
     config = settings.active_llm_config
-
-    if settings.llm_provider == LLMProvider.OPENAI:
-        limiter = _openai_limiter
-    else:
-        limiter = _gemini_limiter
+    limiter = _groq_limiter
 
     # Fast-fail: if we've been rate-limited repeatedly, don't even try
     if limiter.should_fast_fail:
@@ -141,13 +129,11 @@ def call_llm(prompt: str) -> str:
     # Proactive throttle
     limiter.wait_if_needed()
 
-    if settings.llm_provider == LLMProvider.OPENAI:
-        return _call_openai(prompt, config, limiter)
-    return _call_gemini(prompt, config, limiter)
+    return _call_groq(prompt, config, limiter)
 
 
 # ===================================================================
-# Provider implementations
+# Provider implementation — Groq (OpenAI-compatible)
 # ===================================================================
 
 def _is_rate_limit_error(exc: Exception) -> bool:
@@ -159,13 +145,13 @@ def _is_rate_limit_error(exc: Exception) -> bool:
     ])
 
 
-def _call_openai(prompt: str, config: OpenAIConfig, limiter: _RateLimiter) -> str:
-    client = _get_openai_client(config)
+def _call_groq(prompt: str, config: GroqConfig, limiter: _RateLimiter) -> str:
+    client = _get_groq_client(config)
     last_error = None
 
     for attempt in range(1, config.max_retries + 1):
         try:
-            logger.info(f"OpenAI call attempt {attempt}/{config.max_retries}")
+            logger.info(f"Groq call attempt {attempt}/{config.max_retries}")
             parts = prompt.split("\n\n", 1)
             response = client.chat.completions.create(
                 model=config.model,
@@ -177,56 +163,14 @@ def _call_openai(prompt: str, config: OpenAIConfig, limiter: _RateLimiter) -> st
                 max_tokens=config.max_tokens,
                 timeout=config.timeout_seconds,
             )
-            limiter.record_success()
-            return response.choices[0].message.content
 
-        except Exception as exc:
-            last_error = exc
-            if _is_rate_limit_error(exc):
-                limiter.record_429()
-            if attempt < config.max_retries:
-                wait = (2 ** attempt) + random.uniform(0.5, 2.0)
-                logger.warning(f"OpenAI error: {exc}. Retrying in {wait:.1f}s...")
-                time.sleep(wait)
-
-    raise LLMError("openai", None, f"All retries failed: {last_error}")
-
-
-def _call_gemini(prompt: str, config: GeminiConfig, limiter: _RateLimiter) -> str:
-    client = _get_gemini_client(config)
-    last_error = None
-    max_retries = config.max_retries  # Use configured retries (default 2)
-
-    for attempt in range(1, max_retries + 1):
-        try:
-            logger.info(f"Gemini call attempt {attempt}/{max_retries}")
-            response = client.models.generate_content(
-                model=config.model,
-                contents=prompt,
-                config={
-                    "temperature": config.temperature,
-                    "max_output_tokens": max(config.max_tokens, 8192),
-                    "response_mime_type": "application/json",
-                    # Thinking models (gemini-flash-latest → gemini-3-flash)
-                    # share max_output_tokens between thinking + output.
-                    # Cap thinking to 1024 so the JSON response isn't truncated.
-                    "thinking_config": {"thinking_budget": 1024},
-                },
-            )
-
-            # Log token usage for debugging
-            meta = response.usage_metadata
-            thinking_tokens = getattr(meta, "thoughts_token_count", 0) or 0
+            result_text = response.choices[0].message.content
             logger.info(
-                f"Gemini tokens — prompt: {meta.prompt_token_count}, "
-                f"output: {meta.candidates_token_count}, "
-                f"thinking: {thinking_tokens}, "
-                f"total: {meta.total_token_count}, "
-                f"finish: {response.candidates[0].finish_reason}"
+                f"Groq response — model: {config.model}, "
+                f"tokens: {response.usage.total_tokens if response.usage else 'N/A'}, "
+                f"chars: {len(result_text)}"
             )
-
-            result_text = response.text
-            logger.debug(f"Gemini raw response ({len(result_text)} chars): {result_text[:500]}")
+            logger.debug(f"Groq raw response: {result_text[:500]}")
             limiter.record_success()
             return result_text
 
@@ -236,23 +180,21 @@ def _call_gemini(prompt: str, config: GeminiConfig, limiter: _RateLimiter) -> st
 
             if is_rate_limit:
                 limiter.record_429()
-                if attempt < max_retries:
-                    # Moderate backoff: 5s, 10s + jitter
+                if attempt < config.max_retries:
                     wait = (5 * attempt) + random.uniform(1, 3)
                     logger.warning(
                         f"Rate limited (429). Waiting {wait:.0f}s before "
-                        f"retry {attempt + 1}/{max_retries}..."
+                        f"retry {attempt + 1}/{config.max_retries}..."
                     )
                     time.sleep(wait)
                 else:
-                    # Don't retry further — let it fall through to heuristic
                     logger.warning(
                         f"Rate limited on final attempt. "
                         f"Will fall back to heuristic ranking."
                     )
-            elif attempt < max_retries:
+            elif attempt < config.max_retries:
                 wait = (2 ** attempt) + random.uniform(0.5, 1.5)
-                logger.warning(f"Gemini error: {exc}. Retrying in {wait:.1f}s...")
+                logger.warning(f"Groq error: {exc}. Retrying in {wait:.1f}s...")
                 time.sleep(wait)
 
-    raise LLMError("gemini", None, f"All retries failed: {last_error}")
+    raise LLMError("groq", None, f"All retries failed: {last_error}")
